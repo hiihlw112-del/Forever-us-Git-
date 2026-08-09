@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Forever Us</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rose:#E85D75; --rose-soft:rgba(232,93,117,.12);
+    --coral:#F48C95;
+    --gold:#D4AF37; --gold-soft:rgba(212,175,55,.16);
+    --bg:#FFF8F5; --card:#FFFFFF;
+    --ink:#2b2024; --muted:#8a7378; --line:rgba(43,32,36,.1);
+    --shadow:0 18px 46px rgba(43,32,36,.12);
+    --radius:20px; --ease:cubic-bezier(.22,1,.36,1);
+  }
+  [data-theme="dark"]{
+    --bg:#121212; --card:#1e1a1c;
+    --ink:#f5e9ea; --muted:#b79ba1; --line:rgba(245,233,234,.12);
+    --shadow:0 18px 46px rgba(0,0,0,.5);
+    --rose-soft:rgba(232,93,117,.2); --gold-soft:rgba(212,175,55,.2);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;
+    min-height:100vh; overflow-x:hidden; transition:background .4s, color .4s;
+  }
+  h1,h2,h3,.display{font-family:'Playfair Display',serif;}
+  .script{font-family:'Great Vibes',cursive;}
+  button,input,textarea,select{font-family:inherit;}
+  *:focus-visible{outline:2px solid var(--rose); outline-offset:2px;}
+
+  /* ---------- setup gate ---------- */
+  #setup-gate{
+    position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 20%, var(--rose-soft), var(--bg) 70%); padding:24px;
+  }
+  #setup-gate[hidden]{display:none;}
+  .gate-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:32px; max-width:520px;}
+  .gate-card h1{margin-top:0; font-size:1.8rem;}
+  .gate-card p{color:var(--muted); line-height:1.7;}
+  .gate-card code{background:var(--rose-soft); color:var(--rose); padding:2px 7px; border-radius:6px; font-size:.9em;}
+
+  /* ---------- envelope intro ---------- */
+  #envelope-screen{
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:24px; z-index:50; padding:20px;
+    background:radial-gradient(ellipse at 50% 20%, var(--rose-soft), var(--bg) 70%);
+    transition:opacity .8s var(--ease), visibility .8s;
+  }
+  #envelope-screen[hidden]{display:none;}
+  #envelope-screen.closed{opacity:0; visibility:hidden; pointer-events:none;}
+  .envelope-label{font-family:'Great Vibes',cursive; font-size:2.4rem; color:var(--rose); margin:0; text-align:center;}
+  .envelope{position:relative; width:min(320px,80vw); height:200px;}
+  .env-body{position:absolute; inset:0; background:linear-gradient(155deg,var(--card),#f3e6df); border-radius:6px; box-shadow:var(--shadow); border:1px solid var(--line);}
+  .env-flap{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:linear-gradient(155deg,#f6ece6,#eddcd2);
+    clip-path:polygon(0 0,50% 55%,100% 0);
+    transform-origin:top; transition:transform 1s var(--ease);
+    border-radius:6px 6px 0 0;
+  }
+  .envelope.open .env-flap{transform:rotateX(180deg);}
+  .env-seal{
+    position:absolute; top:36%; left:50%; transform:translate(-50%,-50%);
+    width:64px; height:64px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--coral), var(--rose));
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    font-size:26px; cursor:pointer; box-shadow:0 6px 16px rgba(232,93,117,.4);
+    border:none; z-index:2; transition:transform .25s, opacity .3s;
+  }
+  .env-seal:hover{transform:translate(-50%,-50%) scale(1.06);}
+  .envelope.open .env-seal{opacity:0; pointer-events:none;}
+  .envelope-hint{color:var(--muted); font-size:.9rem; text-align:center;}
+
+  /* ---------- app shell ---------- */
+  #app{opacity:0; transition:opacity .6s var(--ease); position:relative;}
+  #app.visible{opacity:1;}
+  header.top-nav{
+    position:sticky; top:0; z-index:20; backdrop-filter:blur(10px);
+    background:color-mix(in srgb, var(--bg) 85%, transparent); border-bottom:1px solid var(--line);
+  }
+  .nav-inner{max-width:900px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 20px; gap:10px;}
+  .brand{font-family:'Great Vibes',cursive; font-size:1.6rem; color:var(--rose); flex-shrink:0;}
+  .tabs{display:flex; gap:4px; overflow-x:auto; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    white-space:nowrap; padding:8px 14px; border-radius:999px; border:1px solid transparent;
+    background:transparent; color:var(--muted); font-size:.88rem; font-weight:500; cursor:pointer; transition:all .25s;
+  }
+  .tab.active{background:var(--rose-soft); color:var(--rose); border-color:rgba(232,93,117,.3);}
+  .tab:hover{color:var(--ink);}
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--muted); width:36px; height:36px;
+    border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:1rem;
+  }
+  .icon-btn:hover{color:var(--gold); border-color:var(--gold);}
+  .icon-btn.small{width:28px; height:28px; font-size:.8rem;}
+  .card-actions{display:flex; gap:6px; flex-shrink:0;}
+
+  main{max-width:900px; margin:0 auto; padding:0 20px 90px; position:relative;}
+  section.panel{display:none; padding-top:44px;}
+  section.panel.active{display:block; animation:fadeUp .6s var(--ease);}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+
+  .eyebrow{text-transform:uppercase; letter-spacing:.14em; font-size:.72rem; color:var(--gold); margin-bottom:8px; font-weight:600;}
+  .intro-text{color:var(--muted); font-size:1rem; line-height:1.7; max-width:60ch;}
+  .section-head{margin-bottom:22px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  .section-head h2{font-size:clamp(1.5rem,4vw,2.1rem); margin:0 0 4px; font-weight:600;}
+  .section-head p{color:var(--muted); margin:0;}
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg,var(--rose),var(--coral)); color:#fff;
+    border:none; padding:11px 20px; border-radius:999px; font-weight:600; font-size:.88rem;
+    cursor:pointer; transition:transform .2s, box-shadow .2s; white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-2px); box-shadow:0 8px 20px rgba(232,93,117,.35);}
+  .btn:disabled{opacity:.6; cursor:default; transform:none; box-shadow:none;}
+  .btn.ghost{background:none; border:1px solid var(--line); color:var(--ink);}
+  .btn.ghost:hover{border-color:var(--gold); color:var(--gold); box-shadow:none; transform:none;}
+  .btn.gold{background:linear-gradient(135deg,var(--gold),#e8c766); color:#3a2e08;}
+
+  /* ---------- home ---------- */
+  .home-hero{text-align:center; padding:10px 0 8px;}
+  .home-names{font-family:'Playfair Display',serif; font-size:clamp(1.8rem,6vw,2.8rem); margin:0 0 6px;}
+  .home-days{color:var(--muted); font-size:1rem;}
+  .home-days strong{color:var(--rose); font-family:'Playfair Display',serif; font-size:1.4rem;}
+  .quote-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:24px 26px; text-align:center; margin:26px 0; font-family:'Great Vibes',cursive; font-size:1.5rem; color:var(--ink);
+  }
+  .mini-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:24px 0;}
+  .mini-stat{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; text-align:center;}
+  .mini-stat .n{font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--rose); display:block;}
+  .mini-stat .l{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em;}
+  .quick-actions{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:26px;}
+  .onthisday-card{background:linear-gradient(135deg,var(--rose-soft),var(--gold-soft)); border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-bottom:8px;}
+  .onthisday-card .tag{font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--rose); font-weight:600;}
+  .onthisday-card h3{margin:8px 0 4px;}
+  .onthisday-card p{color:var(--muted); margin:0; line-height:1.6;}
+  .sync-pill{display:inline-flex; align-items:center; gap:6px; font-size:.72rem; color:var(--muted); background:var(--card); border:1px solid var(--line); padding:4px 12px; border-radius:999px; margin-top:14px;}
+  .sync-dot{width:7px; height:7px; border-radius:50%; background:#3fb950;}
+
+  /* ---------- timeline ---------- */
+  .chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;}
+  .chip{padding:6px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--muted); font-size:.82rem; cursor:pointer; transition:all .2s;}
+  .chip.active{background:var(--rose); border-color:var(--rose); color:#fff;}
+  .vine-wrap{position:relative; padding-left:36px;}
+  .vine-wrap::before{content:''; position:absolute; left:11px; top:6px; bottom:6px; width:2px; background:linear-gradient(var(--gold),var(--rose)); opacity:.45;}
+  .vine-item{position:relative; margin-bottom:22px; opacity:0; transform:translateY(16px); transition:opacity .6s var(--ease), transform .6s var(--ease);}
+  .vine-item.in-view{opacity:1; transform:translateY(0);}
+  .vine-dot{position:absolute; left:-30px; top:22px; width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--gold), var(--rose)); box-shadow:0 0 0 4px var(--bg);}
+  .vine-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow);}
+  .vine-meta{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px; font-size:.78rem; color:var(--muted);}
+  .vine-meta-left{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .vine-meta .cat{background:var(--gold-soft); color:var(--gold); padding:3px 10px; border-radius:999px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:.68rem;}
+  .vine-card h3{margin:0 0 6px; font-size:1.15rem;}
+  .vine-card p{margin:0; color:var(--ink); line-height:1.65; font-size:.94rem; white-space:pre-wrap;}
+  .vine-media{width:100%; max-height:70vh; object-fit:contain; border-radius:12px; margin-top:12px; background:var(--bg); display:block;}
+  .vine-media-wrap{position:relative; width:100%; padding-top:56.25%; border-radius:12px; overflow:hidden; margin-top:12px; background:#000;}
+  .vine-media-wrap iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+  .vine-tags{margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;}
+  .vine-tags span{font-size:.72rem; color:var(--muted); background:var(--rose-soft); padding:2px 9px; border-radius:999px;}
+  .empty-state{text-align:center; padding:50px 20px; color:var(--muted);}
+  .empty-state .big{font-size:2rem; margin-bottom:10px;}
+
+  /* ---------- letters ---------- */
+  .letter-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; margin-bottom:14px; box-shadow:var(--shadow); transition:border-color .2s;}
+  .letter-card:hover{border-color:rgba(212,175,55,.4);}
+  .letter-top{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+  .letter-top-left{cursor:pointer; flex:1; min-width:0;}
+  .letter-top h3{margin:0; font-size:1.1rem;}
+  .letter-date{font-size:.78rem; color:var(--muted); white-space:nowrap;}
+  .letter-preview{margin-top:8px; color:var(--muted); font-size:.9rem; cursor:pointer;}
+  .lock-badge{display:inline-flex; align-items:center; gap:6px; background:var(--gold-soft); color:var(--gold); font-size:.75rem; font-weight:600; padding:4px 12px; border-radius:999px; margin-top:10px;}
+  .letter-body{display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); line-height:1.75; white-space:pre-wrap; font-size:.95rem;}
+  .letter-card.expanded .letter-body{display:block;}
+
+  /* ---------- journal ---------- */
+  .journal-entry{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 20px; margin-bottom:12px; box-shadow:var(--shadow);}
+  .journal-top{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:.8rem; color:var(--muted); margin-bottom:6px;}
+  .journal-top-left{display:flex; align-items:center; gap:10px;}
+  .journal-entry p{margin:0; line-height:1.65; font-size:.93rem; white-space:pre-wrap;}
+
+  /* ---------- us ---------- */
+  .us-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:26px; box-shadow:var(--shadow); margin-bottom:22px;}
+  .us-card h3{margin-top:0;}
+  .field-row{display:flex; gap:12px; flex-wrap:wrap;}
+  .field-row .field{flex:1; min-width:160px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:.75rem; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;}
+  .field input[type=text], .field input[type=date], .field textarea, .field select{
+    width:100%; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+    color:var(--ink); padding:10px 12px; font-size:.92rem;
+  }
+  .field textarea{min-height:90px; resize:vertical;}
+  .field .hint{font-size:.72rem; color:var(--muted); margin-top:4px;}
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px;}
+  .stat-tile{background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:14px; text-align:center;}
+  .stat-tile .n{font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--rose); display:block;}
+  .stat-tile .l{font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--card); border:1px solid var(--rose); color:var(--ink);
+    padding:13px 22px; border-radius:14px; font-size:.92rem;
+    opacity:0; transition:all .4s var(--ease); z-index:70; max-width:min(380px,85vw);
+    text-align:center; pointer-events:none; box-shadow:var(--shadow);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,12,14,.55); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center; z-index:80;
+    opacity:0; visibility:hidden; transition:all .3s; padding:20px;
+  }
+  .modal-overlay.show{opacity:1; visibility:visible;}
+  .modal{background:var(--bg); border:1px solid var(--line); border-radius:24px; max-width:520px; width:100%; max-height:85vh; overflow-y:auto; padding:26px; box-shadow:var(--shadow);}
+  .modal-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
+  .modal h3{font-family:'Playfair Display',serif; margin:0; font-size:1.35rem;}
+  .modal-close-btn{background:none; border:none; color:var(--muted); font-size:1.3rem; cursor:pointer; line-height:1;}
+  .modal-close-btn:hover{color:var(--rose);}
+  .modal-sub{color:var(--muted); font-size:.83rem; margin:0 0 18px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:6px;}
+  .spark-row{display:flex; gap:8px; align-items:flex-end; margin-bottom:16px;}
+  .spark-row .field{flex:1; margin-bottom:0;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- setup gate: shown until firebaseConfig below is filled in -->
+  <div id="setup-gate" hidden>
+    <div class="gate-card">
+      <h1 class="display">Almost there</h1>
+      <p>This copy of <strong>Forever Us</strong> isn't connected to a database yet, so nothing will save or sync between your two devices until it is.</p>
+      <p>Open this file, find the <code>firebaseConfig</code> object near the top of the script, and paste in your own Firebase project's config. Full step-by-step setup is in <strong>SETUP.md</strong>, alongside this file.</p>
+    </div>
+  </div>
+
+  <!-- envelope intro -->
+  <div id="envelope-screen" hidden>
+    <p class="envelope-label" id="envelope-label">Forever, You &amp; My Love</p>
+    <div class="envelope" id="envelope">
+      <div class="env-body"></div>
+      <div class="env-flap"></div>
+      <button class="env-seal" id="env-seal" aria-label="Open">&#10084;</button>
+    </div>
+    <p class="envelope-hint">tap the seal to begin</p>
+  </div>
+
+  <!-- app -->
+  <div id="app" hidden>
+    <header class="top-nav">
+      <div class="nav-inner">
+        <span class="brand">Forever Us</span>
+        <div class="tabs" role="tablist" aria-label="Sections">
+          <button class="tab active" role="tab" aria-selected="true" data-tab="home">Home</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="timeline">Timeline</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="letters">Letters</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="journal">Journal</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="us">Us</button>
+        </div>
+        <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">&#9789;</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- HOME -->
+      <section class="panel active" id="panel-home" role="tabpanel">
+        <div class="home-hero">
+          <p class="eyebrow">a living archive of us</p>
+          <h1 class="home-names display" id="home-names">You &amp; My Love</h1>
+          <p class="home-days" id="home-days"></p>
+          <span class="sync-pill"><span class="sync-dot"></span> synced live</span>
+        </div>
+        <div class="quote-card" id="home-quote"></div>
+        <div class="onthisday-card" id="onthisday-card"></div>
+        <div class="mini-stats">
+          <div class="mini-stat"><span class="n" id="stat-memories-mini">0</span><span class="l">memories</span></div>
+          <div class="mini-stat"><span class="n" id="stat-letters-mini">0</span><span class="l">letters</span></div>
+          <div class="mini-stat"><span class="n" id="stat-journal-mini">0</span><span class="l">journal entries</span></div>
+        </div>
+        <div class="quick-actions">
+          <button class="btn" id="qa-memory">+ Memory</button>
+          <button class="btn ghost" id="qa-letter">+ Letter</button>
+          <button class="btn ghost" id="qa-journal">+ Journal entry</button>
+        </div>
+      </section>
+
+      <!-- TIMELINE -->
+      <section class="panel" id="panel-timeline" role="tabpanel">
+        <div class="section-head">
+          <div>
+            <h2 class="display">Our timeline</h2>
+            <p>Every moment, in the order we lived it.</p>
+          </div>
+          <button class="btn" id="add-memory-btn">+ Add memory</button>
+        </div>
+        <div class="chip-row" id="timeline-filters"></div>
+        <div id="timeline-list"></div>
+      </section>
+
+      <!-- LETTERS -->
+      <section class="panel" id="panel-letters" role="tabpanel">
+        <div class="section-head">
+          <div>
+            <h2 class="display">Letters</h2>
+            <p>Some to open now. Some to open later.</p>
+          </div>
+          <button class="btn" id="add-letter-btn">+ Write a letter</button>
+        </div>
+        <div id="letters-list"></div>
+      </section>
+
+      <!-- JOURNAL -->
+      <section class="panel" id="panel-journal" role="tabpanel">
+        <div class="section-head">
+          <div>
+            <h2 class="display">Journal</h2>
+            <p>A quiet place for the small stuff.</p>
+          </div>
+          <button class="btn" id="add-journal-btn">+ Add entry</button>
+        </div>
+        <div id="journal-list"></div>
+      </section>
+
+      <!-- US -->
+      <section class="panel" id="panel-us" role="tabpanel">
+        <div class="section-head">
+          <div>
+            <h2 class="display">Us</h2>
+            <p>The people behind the archive.</p>
+          </div>
+        </div>
+        <div class="us-card">
+          <h3>Names &amp; dates</h3>
+          <form id="us-form">
+            <div class="field-row">
+              <div class="field"><label for="us-a">Partner A</label><input type="text" id="us-a" maxlength="30"></div>
+              <div class="field"><label for="us-b">Partner B</label><input type="text" id="us-b" maxlength="30"></div>
+            </div>
+            <div class="field"><label for="us-since">Together since</label><input type="date" id="us-since"></div>
+            <button type="submit" class="btn">Save</button>
+          </form>
+        </div>
+        <div class="us-card">
+          <h3>Our story so far</h3>
+          <div class="stat-grid">
+            <div class="stat-tile"><span class="n" id="us-stat-days">0</span><span class="l">days together</span></div>
+            <div class="stat-tile"><span class="n" id="us-stat-memories">0</span><span class="l">memories</span></div>
+            <div class="stat-tile"><span class="n" id="us-stat-letters">0</span><span class="l">letters</span></div>
+            <div class="stat-tile"><span class="n" id="us-stat-journal">0</span><span class="l">journal entries</span></div>
+            <div class="stat-tile"><span class="n" id="us-stat-category">&mdash;</span><span class="l">most common moment</span></div>
+            <div class="stat-tile"><span class="n" id="us-stat-first">&mdash;</span><span class="l">first memory saved</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- memory modal -->
+  <div class="modal-overlay" id="memory-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="memory-modal-title">
+      <div class="modal-top">
+        <h3 id="memory-modal-title">Add a memory</h3>
+        <button class="modal-close-btn" data-close="memory-modal" aria-label="Close">&times;</button>
+      </div>
+      <p class="modal-sub">This gets added to your growing timeline, forever.</p>
+      <form id="memory-form">
+        <div class="field"><label for="m-title">Title</label><input type="text" id="m-title" maxlength="80" required></div>
+        <div class="field"><label for="m-story">The story</label><textarea id="m-story" maxlength="1000" required></textarea></div>
+        <div class="field-row">
+          <div class="field"><label for="m-date">Date</label><input type="date" id="m-date" required></div>
+          <div class="field"><label for="m-mood">Mood</label>
+            <select id="m-mood">
+              <option value="&#128522;">&#128522; happy</option>
+              <option value="&#129394;">&#129394; loved</option>
+              <option value="&#128524;">&#128524; peaceful</option>
+              <option value="&#129401;">&#129401; touched</option>
+              <option value="&#127881;">&#127881; excited</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label for="m-category">Category</label>
+          <select id="m-category">
+            <option value="Firsts">Firsts</option>
+            <option value="Dates">Dates</option>
+            <option value="Trips">Trips</option>
+            <option value="Milestones">Milestones</option>
+            <option value="Everyday">Everyday</option>
+            <option value="Celebrations">Celebrations</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="m-media">Photo or video URL (optional)</label>
+          <input type="text" id="m-media" placeholder="https://... (image, YouTube, Vimeo, or direct video link)">
+          <p class="hint">Shown full-size and uncropped. YouTube and Vimeo links embed automatically.</p>
+        </div>
+        <div class="field"><label for="m-tags">Tags (optional)</label><input type="text" id="m-tags" placeholder="beach, birthday, rain"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-close="memory-modal">Cancel</button>
+          <button type="submit" class="btn">Save memory</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- letter modal -->
+  <div class="modal-overlay" id="letter-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="letter-modal-title">
+      <div class="modal-top">
+        <h3 id="letter-modal-title">Write a letter</h3>
+        <button class="modal-close-btn" data-close="letter-modal" aria-label="Close">&times;</button>
+      </div>
+      <p class="modal-sub">Leave it unlocked to read right away, or lock it for a future date.</p>
+      <form id="letter-form">
+        <div class="field"><label for="l-title">Title</label><input type="text" id="l-title" maxlength="80" required></div>
+        <div class="spark-row">
+          <div class="field"><label for="l-context">Need a spark? (optional context)</label><input type="text" id="l-context" placeholder="e.g. our anniversary, just because"></div>
+          <button type="button" class="btn gold" id="l-spark-btn">&#10024; Spark</button>
+        </div>
+        <div class="field"><label for="l-body">Your words</label><textarea id="l-body" maxlength="3000" style="min-height:140px" required></textarea></div>
+        <div class="field"><label for="l-unlock">Lock until (optional)</label><input type="date" id="l-unlock"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-close="letter-modal">Cancel</button>
+          <button type="submit" class="btn">Save letter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- journal modal -->
+  <div class="modal-overlay" id="journal-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="journal-modal-title">
+      <div class="modal-top">
+        <h3 id="journal-modal-title">Add a journal entry</h3>
+        <button class="modal-close-btn" data-close="journal-modal" aria-label="Close">&times;</button>
+      </div>
+      <p class="modal-sub">A few lines is plenty.</p>
+      <form id="journal-form">
+        <div class="field-row">
+          <div class="field"><label for="j-date">Date</label><input type="date" id="j-date" required></div>
+          <div class="field"><label for="j-mood">Mood</label>
+            <select id="j-mood">
+              <option value="&#128522;">&#128522; happy</option>
+              <option value="&#129394;">&#129394; loved</option>
+              <option value="&#128524;">&#128524; peaceful</option>
+              <option value="&#129401;">&#129401; touched</option>
+              <option value="&#127881;">&#127881; excited</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label for="j-text">What's on your mind</label><textarea id="j-text" maxlength="800" required></textarea></div>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-close="journal-modal">Cancel</button>
+          <button type="submit" class="btn">Save entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase (compat build - no bundler needed) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+  /* =========================================================
+     1) PASTE YOUR OWN FIREBASE PROJECT CONFIG HERE.
+     Firebase Console -> Project settings -> Your apps -> Web app -> SDK setup and config.
+     This config is safe to expose publicly - it's not a secret key.
+     ========================================================= */
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDjQbnOLYkQ_V3ymSCpn6_KK2kx3jT3cX4",
+  authDomain: "forever-us-f.firebaseapp.com",
+  databaseURL: "https://forever-us-f-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "forever-us-f",
+  storageBucket: "forever-us-f.firebasestorage.app",
+  messagingSenderId: "402655189244",
+  appId: "1:402655189244:web:55f595ef395a663c39df79",
+  measurementId: "G-BWDST4L7DB"
+};
+
+  /* =========================================================
+     2) OPTIONAL: deploy the Cloud Function in /functions and paste its
+     URL here to enable the Spark AI button. Leave blank to skip it .
+     ========================================================= */
+  const SPARK_FUNCTION_URL = "";
+
+  const FIREBASE_CONFIGURED = firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE_');
+  const DB_PATH = 'forever-us-data';
+
+  const DEFAULTS = {
+    partnerA: 'You',
+    partnerB: 'My Love',
+    togetherSince: '',
+    theme: 'light',
+    memories: {},
+    letters: {},
+    journal: {}
+  };
+  const QUOTES = [
+    "Some stories are written. Ours is being lived.",
+    "Every ordinary Tuesday with you is a small miracle.",
+    "Home was never a place. It was always you.",
+    "We're not writing a chapter. We're building a whole library.",
+    "Forever is just a long string of todays with you.",
+    "Some people search a lifetime for what we found by accident.",
+    "The best part of my day is still the thought of you in it.",
+    "We keep proving that ordinary love is the rarest kind.",
+    "Every memory we save is a promise we're keeping.",
+    "This is us, still choosing each other, one day at a time."
+  ];
+  const CATEGORIES = ['Firsts','Dates','Trips','Milestones','Everyday','Celebrations'];
+
+  let data = JSON.parse(JSON.stringify(DEFAULTS));
+  let state = { activeCategory: 'All' };
+  let editingMemoryId = null, editingLetterId = null, editingJournalId = null;
+  let dbRef = null;
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function toArray(obj){ return Object.entries(obj || {}).map(([id, v]) => Object.assign({ id }, v)); }
+
+  /* ---------- media detection (photos + video) ---------- */
+  function detectMediaType(url){
+    if(!url) return null;
+    const lower = url.toLowerCase();
+    if(/(?:youtube\.com\/watch\?v=|youtu\.be\/)/.test(lower)) return 'youtube';
+    if(/vimeo\.com\//.test(lower)) return 'vimeo';
+    if(/\.(mp4|webm|ogg|mov)(\?|$)/.test(lower)) return 'video';
+    return 'image';
+  }
+  function youtubeEmbedUrl(url){
+    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+    return m ? `https://www.youtube.com/embed/${m[1]}` : null;
+  }
+  function vimeoEmbedUrl(url){
+    const m = url.match(/vimeo\.com\/(\d+)/);
+    return m ? `https://player.vimeo.com/video/${m[1]}` : null;
+  }
+  function renderMedia(url, title){
+    if(!url) return '';
+    const safeTitle = escapeHtml(title || 'A memory');
+    const type = detectMediaType(url);
+    if(type === 'youtube'){
+      const embed = youtubeEmbedUrl(url);
+      return embed ? `<div class="vine-media-wrap"><iframe src="${embed}" title="${safeTitle}" allowfullscreen loading="lazy"></iframe></div>` : '';
+    }
+    if(type === 'vimeo'){
+      const embed = vimeoEmbedUrl(url);
+      return embed ? `<div class="vine-media-wrap"><iframe src="${embed}" title="${safeTitle}" allowfullscreen loading="lazy"></iframe></div>` : '';
+    }
+    if(type === 'video'){
+      return `<video class="vine-media" src="${escapeHtml(url)}" controls preload="metadata"></video>`;
+    }
+    return `<img class="vine-media" src="${escapeHtml(url)}" alt="${safeTitle}" loading="lazy">`;
+  }
+
+  /* ---------- toast ---------- */
+  let toastTimeout;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => t.classList.remove('show'), 3600);
+  }
+
+  /* ---------- theme ---------- */
+  function applyTheme(){
+    document.documentElement.setAttribute('data-theme', data.theme || 'light');
+    document.getElementById('theme-toggle').textContent = data.theme === 'dark' ? '\u2600' : '\u263D';
+  }
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const next = data.theme === 'dark' ? 'light' : 'dark';
+    if(dbRef) dbRef.child('theme').set(next);
+  });
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  function switchTab(tab){
+    document.querySelectorAll('.tab').forEach(b => {
+      const active = b.dataset.tab === tab;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('section.panel').forEach(s => s.classList.toggle('active', s.id === `panel-${tab}`));
+  }
+  document.getElementById('qa-memory').addEventListener('click', () => { switchTab('timeline'); openAddMemory(); });
+  document.getElementById('qa-letter').addEventListener('click', () => { switchTab('letters'); openAddLetter(); });
+  document.getElementById('qa-journal').addEventListener('click', () => { switchTab('journal'); openAddJournal(); });
+
+  /* ---------- modals (generic) ---------- */
+  function openModal(id){ document.getElementById(id).classList.add('show'); }
+  function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+  document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.close)));
+  document.querySelectorAll('.modal-overlay').forEach(ov => ov.addEventListener('click', e => { if(e.target === ov) closeModal(ov.id); }));
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ document.querySelectorAll('.modal-overlay.show').forEach(ov => closeModal(ov.id)); }
+  });
+
+  function openAddMemory(){
+    editingMemoryId = null;
+    document.getElementById('memory-form').reset();
+    document.getElementById('m-date').value = todayStr();
+    document.getElementById('memory-modal-title').textContent = 'Add a memory';
+    openModal('memory-modal');
+  }
+  function openAddLetter(){
+    editingLetterId = null;
+    document.getElementById('letter-form').reset();
+    document.getElementById('letter-modal-title').textContent = 'Write a letter';
+    openModal('letter-modal');
+  }
+  function openAddJournal(){
+    editingJournalId = null;
+    document.getElementById('journal-form').reset();
+    document.getElementById('j-date').value = todayStr();
+    document.getElementById('journal-modal-title').textContent = 'Add a journal entry';
+    openModal('journal-modal');
+  }
+  document.getElementById('add-memory-btn').addEventListener('click', openAddMemory);
+  document.getElementById('add-letter-btn').addEventListener('click', openAddLetter);
+  document.getElementById('add-journal-btn').addEventListener('click', openAddJournal);
+
+  /* ---------- envelope ---------- */
+  document.getElementById('env-seal').addEventListener('click', () => {
+    const env = document.getElementById('envelope');
+    env.classList.add('open');
+    setTimeout(() => {
+      document.getElementById('envelope-screen').classList.add('closed');
+      const app = document.getElementById('app');
+      app.hidden = false;
+      requestAnimationFrame(() => app.classList.add('visible'));
+    }, 750);
+  });
+
+  /* ---------- render: home ---------- */
+  function renderHome(){
+    document.getElementById('home-names').textContent = `${data.partnerA} & ${data.partnerB}`;
+    document.getElementById('envelope-label').textContent = `Forever, ${data.partnerA} & ${data.partnerB}`;
+    const daysEl = document.getElementById('home-days');
+    if(data.togetherSince){
+      const days = Math.max(0, Math.floor((Date.now() - new Date(data.togetherSince).getTime()) / 86400000));
+      daysEl.innerHTML = `<strong>${days}</strong> days of us`;
+    } else {
+      daysEl.textContent = 'Set your "together since" date in the Us tab.';
+    }
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0).getTime()) / 86400000);
+    document.getElementById('home-quote').textContent = '\u201C' + QUOTES[dayOfYear % QUOTES.length] + '\u201D';
+
+    const memArr = toArray(data.memories), letArr = toArray(data.letters), jrnArr = toArray(data.journal);
+    document.getElementById('stat-memories-mini').textContent = memArr.length;
+    document.getElementById('stat-letters-mini').textContent = letArr.length;
+    document.getElementById('stat-journal-mini').textContent = jrnArr.length;
+
+    renderOnThisDay(memArr);
+  }
+
+  function renderOnThisDay(memArr){
+    const card = document.getElementById('onthisday-card');
+    const now = new Date();
+    const mmdd = String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    const matches = memArr.filter(m => m.date && m.date.slice(5) === mmdd && m.date.slice(0,4) !== String(now.getFullYear()));
+    if(matches.length){
+      matches.sort((a,b) => new Date(b.date) - new Date(a.date));
+      const m = matches[0];
+      const years = now.getFullYear() - parseInt(m.date.slice(0,4),10);
+      card.innerHTML = `<span class="tag">On this day, ${years} year${years===1?'':'s'} ago</span><h3>${escapeHtml(m.title)}</h3><p>${escapeHtml(m.story.slice(0,160))}${m.story.length>160?'\u2026':''}</p>`;
+      return;
+    }
+    if(memArr.length){
+      const latest = [...memArr].sort((a,b) => new Date(b.date)-new Date(a.date))[0];
+      card.innerHTML = `<span class="tag">Your latest memory</span><h3>${escapeHtml(latest.title)}</h3><p>${escapeHtml(latest.story.slice(0,160))}${latest.story.length>160?'\u2026':''}</p>`;
+      return;
+    }
+    card.innerHTML = `<span class="tag">Nothing here yet</span><h3>Your story starts today</h3><p>Add your first memory and watch this space fill up.</p>`;
+  }
+
+  /* ---------- render: timeline ---------- */
+  function renderFilters(){
+    const wrap = document.getElementById('timeline-filters');
+    const cats = ['All', ...CATEGORIES];
+    wrap.innerHTML = cats.map(c => `<button class="chip ${state.activeCategory===c?'active':''}" data-cat="${c}">${c}</button>`).join('');
+    wrap.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
+      state.activeCategory = chip.dataset.cat;
+      renderFilters();
+      renderTimeline();
+    }));
+  }
+
+  function renderTimeline(){
+    const list = document.getElementById('timeline-list');
+    let items = toArray(data.memories).sort((a,b) => new Date(a.date) - new Date(b.date));
+    if(state.activeCategory !== 'All') items = items.filter(m => m.category === state.activeCategory);
+    if(!items.length){
+      list.innerHTML = `<div class="empty-state"><div class="big">&#127807;</div><p>${Object.keys(data.memories||{}).length ? 'Nothing in this category yet.' : 'Your story starts here \u2014 add your first memory.'}</p></div>`;
+      return;
+    }
+    list.innerHTML = `<div class="vine-wrap">` + items.map(m => `
+      <div class="vine-item" data-id="${m.id}">
+        <span class="vine-dot"></span>
+        <div class="vine-card">
+          <div class="vine-meta">
+            <div class="vine-meta-left">
+              <span>${m.mood || ''}</span>
+              <span>${escapeHtml(m.date)}</span>
+              <span class="cat">${escapeHtml(m.category)}</span>
+            </div>
+            <div class="card-actions">
+              <button class="icon-btn small" data-edit-memory="${m.id}" aria-label="Edit memory">&#9998;</button>
+              <button class="icon-btn small" data-delete-memory="${m.id}" aria-label="Delete memory">&#128465;</button>
+            </div>
+          </div>
+          <h3>${escapeHtml(m.title)}</h3>
+          <p>${escapeHtml(m.story)}</p>
+          ${renderMedia(m.mediaUrl, m.title)}
+          ${m.tags && m.tags.length ? `<div class="vine-tags">${m.tags.map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>
+    `).join('') + `</div>`;
+    observeVineItems();
+
+    list.querySelectorAll('[data-edit-memory]').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.editMemory;
+      const m = items.find(x => x.id === id);
+      if(!m) return;
+      editingMemoryId = id;
+      document.getElementById('m-title').value = m.title;
+      document.getElementById('m-story').value = m.story;
+      document.getElementById('m-date').value = m.date;
+      document.getElementById('m-mood').value = m.mood;
+      document.getElementById('m-category').value = m.category;
+      document.getElementById('m-media').value = m.mediaUrl || '';
+      document.getElementById('m-tags').value = (m.tags||[]).join(', ');
+      document.getElementById('memory-modal-title').textContent = 'Edit memory';
+      openModal('memory-modal');
+    }));
+    list.querySelectorAll('[data-delete-memory]').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.deleteMemory;
+      if(!confirm('Delete this memory? This can\'t be undone.')) return;
+      dbRef.child('memories').child(id).remove()
+        .then(() => showToast('Memory deleted'))
+        .catch(() => showToast("Couldn't delete \u2014 check your connection"));
+    }));
+  }
+
+  let vineObserver;
+  function observeVineItems(){
+    if(vineObserver) vineObserver.disconnect();
+    vineObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in-view'); vineObserver.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.vine-item').forEach(el => vineObserver.observe(el));
+  }
+
+  document.getElementById('memory-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!dbRef){ showToast('Not connected yet \u2014 check your Firebase setup.'); return; }
+    const tagsRaw = document.getElementById('m-tags').value.trim();
+    const payload = {
+      title: document.getElementById('m-title').value.trim(),
+      story: document.getElementById('m-story').value.trim(),
+      date: document.getElementById('m-date').value || todayStr(),
+      mood: document.getElementById('m-mood').value,
+      category: document.getElementById('m-category').value,
+      mediaUrl: document.getElementById('m-media').value.trim(),
+      tags: tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : []
+    };
+    const id = editingMemoryId || uid();
+    try{
+      await dbRef.child('memories').child(id).set(payload);
+      showToast(editingMemoryId ? 'Memory updated \u2713' : 'Memory saved \u2713');
+    }catch(err){ showToast("Couldn't save \u2014 check your connection"); }
+    editingMemoryId = null;
+    e.target.reset();
+    closeModal('memory-modal');
+  });
+
+  /* ---------- render: letters ---------- */
+  function renderLetters(){
+    const list = document.getElementById('letters-list');
+    const items = toArray(data.letters);
+    if(!items.length){
+      list.innerHTML = `<div class="empty-state"><div class="big">&#9993;</div><p>No letters yet. Write the first one.</p></div>`;
+      return;
+    }
+    items.sort((a,b) => new Date(b.createdDate) - new Date(a.createdDate));
+    const now = Date.now();
+    list.innerHTML = items.map(l => {
+      const locked = l.unlockDate && new Date(l.unlockDate).getTime() > now;
+      const actions = `<div class="card-actions">
+          <button class="icon-btn small" data-edit-letter="${l.id}" aria-label="Edit letter">&#9998;</button>
+          <button class="icon-btn small" data-delete-letter="${l.id}" aria-label="Delete letter">&#128465;</button>
+        </div>`;
+      if(locked){
+        const daysLeft = Math.ceil((new Date(l.unlockDate).getTime() - now) / 86400000);
+        return `<div class="letter-card locked" data-id="${l.id}">
+          <div class="letter-top"><div class="letter-top-left"><h3>${escapeHtml(l.title)}</h3><span class="letter-date">written ${escapeHtml(l.createdDate)}</span></div>${actions}</div>
+          <p class="letter-preview" style="cursor:default">A little something, waiting for the right day.</p>
+          <span class="lock-badge">&#128274; opens in ${daysLeft} day${daysLeft===1?'':'s'}</span>
+        </div>`;
+      }
+      return `<div class="letter-card" data-id="${l.id}">
+        <div class="letter-top"><div class="letter-top-left" data-toggle-letter="${l.id}"><h3>${escapeHtml(l.title)}</h3><span class="letter-date">${escapeHtml(l.createdDate)}</span></div>${actions}</div>
+        <p class="letter-preview" data-toggle-letter="${l.id}">${escapeHtml(l.body.slice(0,90))}${l.body.length>90?'\u2026':''}</p>
+        <div class="letter-body">${escapeHtml(l.body)}</div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('[data-toggle-letter]').forEach(el => el.addEventListener('click', () => {
+      el.closest('.letter-card').classList.toggle('expanded');
+    }));
+    list.querySelectorAll('[data-edit-letter]').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.editLetter;
+      const l = items.find(x => x.id === id);
+      if(!l) return;
+      editingLetterId = id;
+      document.getElementById('l-title').value = l.title;
+      document.getElementById('l-body').value = l.body;
+      document.getElementById('l-unlock').value = l.unlockDate || '';
+      document.getElementById('l-context').value = '';
+      document.getElementById('letter-modal-title').textContent = 'Edit letter';
+      openModal('letter-modal');
+    }));
+    list.querySelectorAll('[data-delete-letter]').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.deleteLetter;
+      if(!confirm('Delete this letter? This can\'t be undone.')) return;
+      dbRef.child('letters').child(id).remove()
+        .then(() => showToast('Letter deleted'))
+        .catch(() => showToast("Couldn't delete \u2014 check your connection"));
+    }));
+  }
+
+  async function getSpark(context){
+    if(!SPARK_FUNCTION_URL){
+      const err = new Error('not-configured');
+      err.code = 'not-configured';
+      throw err;
+    }
+    const response = await fetch(SPARK_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context })
+    });
+    if(!response.ok) throw new Error('request-failed');
+    const resData = await response.json();
+    return resData.line || '';
+  }
+  document.getElementById('l-spark-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('l-spark-btn');
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = '\u2728 thinking\u2026';
+    try{
+      const context = document.getElementById('l-context').value.trim();
+      const line = await getSpark(context);
+      const bodyEl = document.getElementById('l-body');
+      bodyEl.value = bodyEl.value ? bodyEl.value + '\n\n' + line : line;
+      bodyEl.focus();
+    }catch(err){
+      if(err && err.code === 'not-configured'){
+        showToast("Spark isn't set up yet \u2014 see SETUP.md to add it.");
+      } else {
+        showToast("Couldn't reach inspiration \u2014 your own words are better anyway.");
+      }
+    }
+    btn.disabled = false; btn.textContent = original;
+  });
+
+  document.getElementById('letter-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!dbRef){ showToast('Not connected yet \u2014 check your Firebase setup.'); return; }
+    const payload = {
+      title: document.getElementById('l-title').value.trim(),
+      body: document.getElementById('l-body').value.trim(),
+      createdDate: editingLetterId ? (toArray(data.letters).find(x=>x.id===editingLetterId)||{}).createdDate || todayStr() : todayStr(),
+      unlockDate: document.getElementById('l-unlock').value || ''
+    };
+    const id = editingLetterId || uid();
+    try{
+      await dbRef.child('letters').child(id).set(payload);
+      showToast(editingLetterId ? 'Letter updated \u2713' : 'Letter saved \u2713');
+    }catch(err){ showToast("Couldn't save \u2014 check your connection"); }
+    editingLetterId = null;
+    e.target.reset();
+    closeModal('letter-modal');
+  });
+
+  /* ---------- render: journal ---------- */
+  function renderJournal(){
+    const list = document.getElementById('journal-list');
+    const items = toArray(data.journal);
+    if(!items.length){
+      list.innerHTML = `<div class="empty-state"><div class="big">&#128221;</div><p>No entries yet. Start with today.</p></div>`;
+      return;
+    }
+    items.sort((a,b) => new Date(b.date) - new Date(a.date));
+    list.innerHTML = items.map(j => `
+      <div class="journal-entry">
+        <div class="journal-top">
+          <div class="journal-top-left"><span>${j.mood || ''}</span><span>${escapeHtml(j.date)}</span></div>
+          <div class="card-actions">
+            <button class="icon-btn small" data-edit-journal="${j.id}" aria-label="Edit entry">&#9998;</button>
+            <button class="icon-btn small" data-delete-journal="${j.id}" aria-label="Delete entry">&#128465;</button>
+          </div>
+        </div>
+        <p>${escapeHtml(j.text)}</p>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('[data-edit-journal]').forEach(btn => btn.addEventListener('click', () => {
+      const id = btn.dataset.editJournal;
+      const j = items.find(x => x.id === id);
+      if(!j) return;
+      editingJournalId = id;
+      document.getElementById('j-date').value = j.date;
+      document.getElementById('j-mood').value = j.mood;
+      document.getElementById('j-text').value = j.text;
+      document.getElementById('journal-modal-title').textContent = 'Edit journal entry';
+      openModal('journal-modal');
+    }));
+    list.querySelectorAll('[data-delete-journal]').forEach(btn => btn.addEventListener('click', () => {
+      const id = btn.dataset.deleteJournal;
+      if(!confirm('Delete this entry? This can\'t be undone.')) return;
+      dbRef.child('journal').child(id).remove()
+        .then(() => showToast('Entry deleted'))
+        .catch(() => showToast("Couldn't delete \u2014 check your connection"));
+    }));
+  }
+  document.getElementById('journal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!dbRef){ showToast('Not connected yet \u2014 check your Firebase setup.'); return; }
+    const payload = {
+      date: document.getElementById('j-date').value || todayStr(),
+      mood: document.getElementById('j-mood').value,
+      text: document.getElementById('j-text').value.trim()
+    };
+    const id = editingJournalId || uid();
+    try{
+      await dbRef.child('journal').child(id).set(payload);
+      showToast(editingJournalId ? 'Entry updated \u2713' : 'Entry saved \u2713');
+    }catch(err){ showToast("Couldn't save \u2014 check your connection"); }
+    editingJournalId = null;
+    e.target.reset();
+    closeModal('journal-modal');
+  });
+
+  /* ---------- render: us ---------- */
+  function mode(arr){
+    if(!arr.length) return null;
+    const counts = {};
+    arr.forEach(v => { counts[v] = (counts[v]||0) + 1; });
+    return Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+  }
+  function renderUs(){
+    document.getElementById('us-a').value = data.partnerA;
+    document.getElementById('us-b').value = data.partnerB;
+    document.getElementById('us-since').value = data.togetherSince || '';
+
+    const memArr = toArray(data.memories), letArr = toArray(data.letters), jrnArr = toArray(data.journal);
+    const days = data.togetherSince ? Math.max(0, Math.floor((Date.now()-new Date(data.togetherSince).getTime())/86400000)) : 0;
+    document.getElementById('us-stat-days').textContent = data.togetherSince ? days : '\u2014';
+    document.getElementById('us-stat-memories').textContent = memArr.length;
+    document.getElementById('us-stat-letters').textContent = letArr.length;
+    document.getElementById('us-stat-journal').textContent = jrnArr.length;
+    document.getElementById('us-stat-category').textContent = memArr.length ? mode(memArr.map(m=>m.category)) : '\u2014';
+    if(memArr.length){
+      const first = [...memArr].sort((a,b) => new Date(a.date)-new Date(b.date))[0];
+      document.getElementById('us-stat-first').textContent = first.date;
+    } else {
+      document.getElementById('us-stat-first').textContent = '\u2014';
+    }
+  }
+  document.getElementById('us-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!dbRef){ showToast('Not connected yet \u2014 check your Firebase setup.'); return; }
+    const payload = {
+      partnerA: document.getElementById('us-a').value.trim() || DEFAULTS.partnerA,
+      partnerB: document.getElementById('us-b').value.trim() || DEFAULTS.partnerB,
+      togetherSince: document.getElementById('us-since').value
+    };
+    try{
+      await dbRef.update(payload);
+      showToast('Saved \u2713');
+    }catch(err){ showToast("Couldn't save \u2014 check your connection"); }
+  });
+
+  function renderEverything(){
+    applyTheme();
+    renderHome();
+    renderFilters();
+    renderTimeline();
+    renderLetters();
+    renderJournal();
+    renderUs();
+  }
+
+  /* ---------- boot ---------- */
+  function init(){
+    if(!FIREBASE_CONFIGURED){
+      document.getElementById('setup-gate').hidden = false;
+      return;
+    }
+    document.getElementById('envelope-screen').hidden = false;
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    dbRef = db.ref(DB_PATH);
+    dbRef.on('value', snapshot => {
+      const val = snapshot.val();
+      data = val ? Object.assign({}, DEFAULTS, val, {
+        memories: val.memories || {},
+        letters: val.letters || {},
+        journal: val.journal || {}
+      }) : JSON.parse(JSON.stringify(DEFAULTS));
+      renderEverything();
+    }, err => {
+      showToast('Sync error: ' + err.message);
+    });
+  }
+  init();
+</script>
+</body>
+</html>
