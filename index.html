@@ -417,14 +417,11 @@
           <div class="field"><label for="m-date">Date</label><input type="date" id="m-date" required></div>
           <div class="field"><label for="m-mood">Mood</label>
             <select id="m-mood">
-              <option value="&#128522;">&#128522; Happy</option>
-              <option value="&#128532;">&#128532; Sad</option>
-              <option value="&#129300;">&#129300; Overthinking</option>
-              <option value="&#129402;">&#129402; Hurt</option>
-              <option value="&#129394;">&#129394; Loved</option>
-              <option value="&#128524;">&#128524; Peaceful</option>
-              <option value="&#129401;">&#129401; Touched</option>
-              <option value="&#127881;">&#127881; Excited</option>
+              <option value="&#128522;">&#128522; happy</option>
+              <option value="&#129394;">&#129394; loved</option>
+              <option value="&#128524;">&#128524; peaceful</option>
+              <option value="&#129401;">&#129401; touched</option>
+              <option value="&#127881;">&#127881; excited</option>
             </select>
           </div>
         </div>
@@ -489,14 +486,11 @@
           <div class="field"><label for="j-date">Date</label><input type="date" id="j-date" required></div>
           <div class="field"><label for="j-mood">Mood</label>
             <select id="j-mood">
-              <option value="&#128522;">&#128522; Happy</option>
-              <option value="&#128532;">&#128532; Sad</option>
-              <option value="&#129300;">&#129300; Overthinking</option>
-              <option value="&#129402;">&#129402; Hurt</option>
-              <option value="&#129394;">&#129394; Loved</option>
-              <option value="&#128524;">&#128524; Peaceful</option>
-              <option value="&#129401;">&#129401; Touched</option>
-              <option value="&#127881;">&#127881; Excited</option>
+              <option value="&#128522;">&#128522; happy</option>
+              <option value="&#129394;">&#129394; loved</option>
+              <option value="&#128524;">&#128524; peaceful</option>
+              <option value="&#129401;">&#129401; touched</option>
+              <option value="&#127881;">&#127881; excited</option>
             </select>
           </div>
         </div>
@@ -1220,14 +1214,23 @@
 
     if(AI_LOGIC_ENABLED){
       try{
+        // AI Logic is App Check protected in this project. Wait for a real
+        // App Check token before creating the AI service so the AI SDK does
+        // not initialize before the protection layer is ready.
+        if(RECAPTCHA_SITE_KEY){
+          const appCheck = firebase.appCheck();
+          await appCheck.getToken(false);
+        }
+
         const FB_VERSION = '12.17.1';
         const { getAI, getGenerativeModel, GoogleAIBackend } =
           await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-ai.js`);
         const app = firebase.app();
         const ai = getAI(app, { backend: new GoogleAIBackend() });
         window.__foreverUsAiModel = getGenerativeModel(ai, { model: 'gemini-3.6-flash' });
+        console.log('Firebase AI Logic initialized successfully.');
       }catch(err){
-        console.error('Firebase AI Logic setup failed:', err);
+        console.error('Firebase AI Logic setup failed:', err?.code || '', err?.message || err, err);
         // AI is optional; do not prevent the core app from starting.
       }
     }
