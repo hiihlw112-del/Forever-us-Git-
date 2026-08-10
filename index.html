@@ -417,11 +417,14 @@
           <div class="field"><label for="m-date">Date</label><input type="date" id="m-date" required></div>
           <div class="field"><label for="m-mood">Mood</label>
             <select id="m-mood">
-              <option value="&#128522;">&#128522; happy</option>
-              <option value="&#129394;">&#129394; loved</option>
-              <option value="&#128524;">&#128524; peaceful</option>
-              <option value="&#129401;">&#129401; touched</option>
-              <option value="&#127881;">&#127881; excited</option>
+              <option value="&#128522;">&#128522; Happy</option>
+              <option value="&#128532;">&#128532; Sad</option>
+              <option value="&#129300;">&#129300; Overthinking</option>
+              <option value="&#129402;">&#129402; Hurt</option>
+              <option value="&#129394;">&#129394; Loved</option>
+              <option value="&#128524;">&#128524; Peaceful</option>
+              <option value="&#129401;">&#129401; Touched</option>
+              <option value="&#127881;">&#127881; Excited</option>
             </select>
           </div>
         </div>
@@ -486,11 +489,14 @@
           <div class="field"><label for="j-date">Date</label><input type="date" id="j-date" required></div>
           <div class="field"><label for="j-mood">Mood</label>
             <select id="j-mood">
-              <option value="&#128522;">&#128522; happy</option>
-              <option value="&#129394;">&#129394; loved</option>
-              <option value="&#128524;">&#128524; peaceful</option>
-              <option value="&#129401;">&#129401; touched</option>
-              <option value="&#127881;">&#127881; excited</option>
+              <option value="&#128522;">&#128522; Happy</option>
+              <option value="&#128532;">&#128532; Sad</option>
+              <option value="&#129300;">&#129300; Overthinking</option>
+              <option value="&#129402;">&#129402; Hurt</option>
+              <option value="&#129394;">&#129394; Loved</option>
+              <option value="&#128524;">&#128524; Peaceful</option>
+              <option value="&#129401;">&#129401; Touched</option>
+              <option value="&#127881;">&#127881; Excited</option>
             </select>
           </div>
         </div>
@@ -505,7 +511,6 @@
 
   <!-- Firebase (compat build - no bundler needed) -->
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js"></script>
@@ -1196,47 +1201,13 @@
     firebase.auth().signOut();
   });
 
-  /* ---------- security + boot ---------- */
-
-  // App Check uses the Firebase compat SDK here so it shares the exact same
-  // Firebase app instance as Auth and Realtime Database. This avoids mixing
-  // modular and compat app registries during startup.
-  async function setupSecurityAndAI(){
-    if(!FIREBASE_CONFIGURED) return;
-
-    if(RECAPTCHA_SITE_KEY){
-      // Firebase's compat App Check API. Must run after initializeApp() and
-      // before Auth/Realtime Database begin making requests.
-      const appCheck = firebase.appCheck();
-      appCheck.activate(RECAPTCHA_SITE_KEY, true);
-      console.log('Firebase App Check initialized before Auth/Database.');
+  /* ---------- boot ---------- */
+  function init(){
+    if(!FIREBASE_CONFIGURED){
+      document.getElementById('setup-gate').hidden = false;
+      return;
     }
-
-    if(AI_LOGIC_ENABLED){
-      try{
-        // AI Logic is App Check protected in this project. Wait for a real
-        // App Check token before creating the AI service so the AI SDK does
-        // not initialize before the protection layer is ready.
-        if(RECAPTCHA_SITE_KEY){
-          const appCheck = firebase.appCheck();
-          await appCheck.getToken(false);
-        }
-
-        const FB_VERSION = '12.17.1';
-        const { getAI, getGenerativeModel, GoogleAIBackend } =
-          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-ai.js`);
-        const app = firebase.app();
-        const ai = getAI(app, { backend: new GoogleAIBackend() });
-        window.__foreverUsAiModel = getGenerativeModel(ai, { model: 'gemini-3.6-flash' });
-        console.log('Firebase AI Logic initialized successfully.');
-      }catch(err){
-        console.error('Firebase AI Logic setup failed:', err?.code || '', err?.message || err, err);
-        // AI is optional; do not prevent the core app from starting.
-      }
-    }
-  }
-
-  function attachAuthListener(){
+    firebase.initializeApp(firebaseConfig);
     firebase.auth().onAuthStateChanged(user => {
       authUser = user;
       if(user){
@@ -1261,33 +1232,62 @@
       }
     });
   }
-
-  async function init(){
-    if(!FIREBASE_CONFIGURED){
-      document.getElementById('setup-gate').hidden = false;
-      return;
-    }
-
-    // 1. Create the Firebase app.
-    firebase.initializeApp(firebaseConfig);
-
-    // 2. Initialize App Check BEFORE Auth/Database can make requests.
-    //    If App Check is configured but cannot initialize, stop here rather
-    //    than silently starting an app that will fail once enforcement is on.
-    try{
-      await setupSecurityAndAI();
-    }catch(err){
-      document.getElementById('login-error').textContent =
-        'Security setup failed. Please check the App Check site key and try again.';
-      console.error('Startup stopped because App Check could not initialize:', err);
-      return;
-    }
-
-    // 3. Only now attach Auth. A signed-in user can then connect the database.
-    attachAuthListener();
-  }
-
   init();
+
+  // Bridge so the module script below (which needs ES module imports for
+  // App Check and AI Logic) can see the config values from this script.
+  window.__FOREVER_US__ = {
+    firebaseConfigured: FIREBASE_CONFIGURED,
+    recaptchaSiteKey: RECAPTCHA_SITE_KEY,
+    aiLogicEnabled: AI_LOGIC_ENABLED
+  };
+</script>
+
+<script type="module">
+  // App Check and Firebase AI Logic use the modular Firebase Web SDK.
+  // The main app continues using Firebase compat for Auth/Realtime Database.
+  // AI Logic gets its own named modular Firebase app so it does not mix
+  // the compat app instance with the modular AI service registry.
+  const CFG = window.__FOREVER_US__ || {};
+  const FB_VERSION = '12.17.1';
+
+  async function setupSecurityAndAI(){
+    if(!CFG.firebaseConfigured) return;
+    try{
+      const { initializeApp } =
+        await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-app.js`);
+
+      const aiApp = initializeApp({
+        apiKey: firebaseConfig.apiKey,
+        authDomain: firebaseConfig.authDomain,
+        databaseURL: firebaseConfig.databaseURL,
+        projectId: firebaseConfig.projectId,
+        storageBucket: firebaseConfig.storageBucket,
+        messagingSenderId: firebaseConfig.messagingSenderId,
+        appId: firebaseConfig.appId
+      }, 'forever-us-ai');
+
+      if(CFG.recaptchaSiteKey){
+        const { initializeAppCheck, ReCaptchaV3Provider } =
+          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-app-check.js`);
+        initializeAppCheck(aiApp, {
+          provider: new ReCaptchaV3Provider(CFG.recaptchaSiteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      }
+
+      if(CFG.aiLogicEnabled){
+        const { getAI, getGenerativeModel, GoogleAIBackend } =
+          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-ai.js`);
+        const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+        window.__foreverUsAiModel = getGenerativeModel(ai, { model: 'gemini-3.5-flash' });
+        console.log('Firebase AI Logic initialized successfully.');
+      }
+    }catch(err){
+      console.error('App Check / AI Logic setup failed:', err);
+    }
+  }
+  setupSecurityAndAI();
 </script>
 </body>
 </html>
