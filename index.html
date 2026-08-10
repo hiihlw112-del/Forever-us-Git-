@@ -46,6 +46,16 @@
   .gate-card p{color:var(--muted); line-height:1.7;}
   .gate-card code{background:var(--rose-soft); color:var(--rose); padding:2px 7px; border-radius:6px; font-size:.9em;}
 
+  /* ---------- login gate ---------- */
+  #login-gate{
+    position:fixed; inset:0; z-index:55; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 20%, var(--rose-soft), var(--bg) 70%); padding:24px;
+  }
+  #login-gate[hidden]{display:none;}
+  .login-error{color:var(--rose); font-size:.85rem; margin:-8px 0 14px; min-height:1.2em;}
+  .login-forgot{background:none; border:none; color:var(--muted); font-size:.82rem; cursor:pointer; padding:0; text-decoration:underline;}
+  .login-forgot:hover{color:var(--rose);}
+
   /* ---------- envelope intro ---------- */
   #envelope-screen{
     position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
@@ -248,6 +258,23 @@
     </div>
   </div>
 
+  <!-- login gate: shown when Firebase is configured but no one is signed in -->
+  <div id="login-gate" hidden>
+    <div class="gate-card">
+      <h1 class="display">Welcome back</h1>
+      <p>Sign in with the account you set up in Firebase for the two of you.</p>
+      <form id="login-form">
+        <div class="field"><label for="login-email">Email</label><input type="email" id="login-email" required autocomplete="username"></div>
+        <div class="field"><label for="login-password">Password</label><input type="password" id="login-password" required autocomplete="current-password"></div>
+        <p class="login-error" id="login-error"></p>
+        <div class="modal-actions" style="justify-content:space-between; align-items:center;">
+          <button type="button" class="login-forgot" id="login-forgot">Forgot password?</button>
+          <button type="submit" class="btn" id="login-submit">Sign in</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- envelope intro -->
   <div id="envelope-screen" hidden>
     <p class="envelope-label" id="envelope-label">Forever, You &amp; My Love</p>
@@ -272,6 +299,7 @@
           <button class="tab" role="tab" aria-selected="false" data-tab="us">Us</button>
         </div>
         <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">&#9789;</button>
+        <button class="icon-btn" id="signout-btn" aria-label="Sign out" title="Sign out">&#10143;</button>
       </div>
     </header>
 
@@ -475,6 +503,7 @@
   <!-- Firebase (compat build - no bundler needed) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <script>
   /* =========================================================
@@ -482,8 +511,7 @@
      Firebase Console -> Project settings -> Your apps -> Web app -> SDK setup and config.
      This config is safe to expose publicly - it's not a secret key.
      ========================================================= */
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+  const firebaseConfig = {
   apiKey: "AIzaSyDjQbnOLYkQ_V3ymSCpn6_KK2kx3jT3cX4",
   authDomain: "forever-us-f.firebaseapp.com",
   databaseURL: "https://forever-us-f-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -496,7 +524,7 @@ const firebaseConfig = {
 
   /* =========================================================
      2) OPTIONAL: deploy the Cloud Function in /functions and paste its
-     URL here to enable the Spark AI button. Leave blank to skip it .
+     URL here to enable the Spark AI button. Leave blank to skip it.
      ========================================================= */
   const SPARK_FUNCTION_URL = "";
 
@@ -530,6 +558,7 @@ const firebaseConfig = {
   let state = { activeCategory: 'All' };
   let editingMemoryId = null, editingLetterId = null, editingJournalId = null;
   let dbRef = null;
+  let authUser = null;
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function escapeHtml(str){
@@ -1016,14 +1045,9 @@ const firebaseConfig = {
     renderUs();
   }
 
-  /* ---------- boot ---------- */
-  function init(){
-    if(!FIREBASE_CONFIGURED){
-      document.getElementById('setup-gate').hidden = false;
-      return;
-    }
-    document.getElementById('envelope-screen').hidden = false;
-    firebase.initializeApp(firebaseConfig);
+  /* ---------- auth ---------- */
+  function connectDatabase(){
+    if(dbRef) return; // already connected
     const db = firebase.database();
     dbRef = db.ref(DB_PATH);
     dbRef.on('value', snapshot => {
@@ -1036,6 +1060,76 @@ const firebaseConfig = {
       renderEverything();
     }, err => {
       showToast('Sync error: ' + err.message);
+    });
+  }
+  function disconnectDatabase(){
+    if(dbRef){ dbRef.off(); dbRef = null; }
+    data = JSON.parse(JSON.stringify(DEFAULTS));
+  }
+
+  document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const errorEl = document.getElementById('login-error');
+    const submitBtn = document.getElementById('login-submit');
+    errorEl.textContent = '';
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in\u2026';
+    try{
+      await firebase.auth().signInWithEmailAndPassword(email, password);
+      // onAuthStateChanged handles the rest
+    }catch(err){
+      errorEl.textContent = "Couldn't sign in \u2014 check your email and password.";
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign in';
+  });
+
+  document.getElementById('login-forgot').addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value.trim();
+    if(!email){
+      document.getElementById('login-error').textContent = 'Enter your email above first, then tap this again.';
+      return;
+    }
+    try{
+      await firebase.auth().sendPasswordResetEmail(email);
+      document.getElementById('login-error').textContent = '';
+      showToast('Password reset email sent \u2014 check your inbox.');
+    }catch(err){
+      document.getElementById('login-error').textContent = "Couldn't send a reset email for that address.";
+    }
+  });
+
+  document.getElementById('signout-btn').addEventListener('click', () => {
+    if(!confirm('Sign out of Forever Us on this device?')) return;
+    firebase.auth().signOut();
+  });
+
+  /* ---------- boot ---------- */
+  function init(){
+    if(!FIREBASE_CONFIGURED){
+      document.getElementById('setup-gate').hidden = false;
+      return;
+    }
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().onAuthStateChanged(user => {
+      authUser = user;
+      if(user){
+        document.getElementById('login-gate').hidden = true;
+        document.getElementById('login-form').reset();
+        document.getElementById('login-error').textContent = '';
+        document.getElementById('envelope-screen').hidden = false;
+        connectDatabase();
+      } else {
+        disconnectDatabase();
+        document.getElementById('app').classList.remove('visible');
+        document.getElementById('app').hidden = true;
+        document.getElementById('envelope').classList.remove('open');
+        document.getElementById('envelope-screen').classList.remove('closed');
+        document.getElementById('envelope-screen').hidden = true;
+        document.getElementById('login-gate').hidden = false;
+      }
     });
   }
   init();
