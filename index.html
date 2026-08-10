@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
 <style>
   :root{
     --rose:#E85D75; --rose-soft:rgba(232,93,117,.12);
@@ -110,6 +111,7 @@
     border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:1rem;
   }
   .icon-btn:hover{color:var(--gold); border-color:var(--gold);}
+  .icon-btn.on{color:var(--gold); border-color:var(--gold); background:var(--gold-soft);}
   .icon-btn.small{width:28px; height:28px; font-size:.8rem;}
   .card-actions{display:flex; gap:6px; flex-shrink:0;}
 
@@ -299,6 +301,7 @@
           <button class="tab" role="tab" aria-selected="false" data-tab="us">Us</button>
         </div>
         <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">&#9789;</button>
+        <button class="icon-btn" id="notify-btn" aria-label="Enable notifications" title="Enable notifications">&#128276;</button>
         <button class="icon-btn" id="signout-btn" aria-label="Sign out" title="Sign out">&#10143;</button>
       </div>
     </header>
@@ -414,11 +417,14 @@
           <div class="field"><label for="m-date">Date</label><input type="date" id="m-date" required></div>
           <div class="field"><label for="m-mood">Mood</label>
             <select id="m-mood">
-              <option value="&#128522;">&#128522; happy</option>
-              <option value="&#129394;">&#129394; loved</option>
-              <option value="&#128524;">&#128524; peaceful</option>
-              <option value="&#129401;">&#129401; touched</option>
-              <option value="&#127881;">&#127881; excited</option>
+              <option value="&#128522;">&#128522; Happy</option>
+              <option value="&#128532;">&#128532; Sad</option>
+              <option value="&#129300;">&#129300; Overthinking</option>
+              <option value="&#129402;">&#129402; Hurt</option>
+              <option value="&#129394;">&#129394; Loved</option>
+              <option value="&#128524;">&#128524; Peaceful</option>
+              <option value="&#129401;">&#129401; Touched</option>
+              <option value="&#127881;">&#127881; Excited</option>
             </select>
           </div>
         </div>
@@ -483,11 +489,14 @@
           <div class="field"><label for="j-date">Date</label><input type="date" id="j-date" required></div>
           <div class="field"><label for="j-mood">Mood</label>
             <select id="j-mood">
-              <option value="&#128522;">&#128522; happy</option>
-              <option value="&#129394;">&#129394; loved</option>
-              <option value="&#128524;">&#128524; peaceful</option>
-              <option value="&#129401;">&#129401; touched</option>
-              <option value="&#127881;">&#127881; excited</option>
+              <option value="&#128522;">&#128522; Happy</option>
+              <option value="&#128532;">&#128532; Sad</option>
+              <option value="&#129300;">&#129300; Overthinking</option>
+              <option value="&#129402;">&#129402; Hurt</option>
+              <option value="&#129394;">&#129394; Loved</option>
+              <option value="&#128524;">&#128524; Peaceful</option>
+              <option value="&#129401;">&#129401; Touched</option>
+              <option value="&#127881;">&#127881; Excited</option>
             </select>
           </div>
         </div>
@@ -501,9 +510,10 @@
   </div>
 
   <!-- Firebase (compat build - no bundler needed) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js"></script>
 
 <script>
   /* =========================================================
@@ -523,10 +533,30 @@
 };
 
   /* =========================================================
-     2) OPTIONAL: deploy the Cloud Function in /functions and paste its
-     URL here to enable the Spark AI button. Leave blank to skip it.
+     2) OPTIONAL but recommended: paste your reCAPTCHA v3 site key here to
+     turn on Firebase App Check, which helps ensure only your real, loaded
+     copy of this app - not a script or bot with your config - can read or
+     write your database or call Gemini. Firebase Console -> App Check ->
+     register a web app -> reCAPTCHA v3 -> copy the site key.
+     Leave blank to skip it. See SETUP.md's Security section.
      ========================================================= */
-  const SPARK_FUNCTION_URL = "";
+  const RECAPTCHA_SITE_KEY = "6LfasH4tAAAAACbws6HfLHf2_lpf9tK1lP6Cre3_";
+
+  /* =========================================================
+     3) OPTIONAL: set to true to enable the Spark AI button, powered by
+     Gemini's free tier via Firebase AI Logic - no separate backend, API
+     key, or billing plan required. Firebase Console -> AI Logic ->
+     Get started -> choose "Gemini Developer API". See SETUP.md.
+     ========================================================= */
+  const AI_LOGIC_ENABLED = false;
+
+  /* =========================================================
+     4) OPTIONAL: paste your Web Push "VAPID key" here to enable push
+     notifications (bell icon in the header). Firebase Console -> Project
+     settings -> Cloud Messaging -> Web configuration -> Generate key pair.
+     Leave blank to skip it. See SETUP.md's Notifications section.
+     ========================================================= */
+  const VAPID_KEY = "";
 
   const FIREBASE_CONFIGURED = firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE_');
   const DB_PATH = 'forever-us-data';
@@ -802,6 +832,12 @@
     document.querySelectorAll('.vine-item').forEach(el => vineObserver.observe(el));
   }
 
+  function preserveCreatedBy(existingId, collection){
+    const existing = existingId && data[collection] && data[collection][existingId];
+    if(existing && existing.createdBy) return existing.createdBy;
+    return authUser ? authUser.uid : null;
+  }
+
   document.getElementById('memory-form').addEventListener('submit', async e => {
     e.preventDefault();
     if(!dbRef){ showToast('Not connected yet \u2014 check your Firebase setup.'); return; }
@@ -813,7 +849,8 @@
       mood: document.getElementById('m-mood').value,
       category: document.getElementById('m-category').value,
       mediaUrl: document.getElementById('m-media').value.trim(),
-      tags: tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : []
+      tags: tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [],
+      createdBy: preserveCreatedBy(editingMemoryId, 'memories')
     };
     const id = editingMemoryId || uid();
     try{
@@ -883,19 +920,15 @@
   }
 
   async function getSpark(context){
-    if(!SPARK_FUNCTION_URL){
+    const model = window.__foreverUsAiModel;
+    if(!model){
       const err = new Error('not-configured');
       err.code = 'not-configured';
       throw err;
     }
-    const response = await fetch(SPARK_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context })
-    });
-    if(!response.ok) throw new Error('request-failed');
-    const resData = await response.json();
-    return resData.line || '';
+    const prompt = `Write one short, warm sentence (max 25 words) that could open a love letter to a partner. Occasion or feeling to reflect, if any: "${context || 'just because, no particular occasion'}". Return only the sentence - no quotation marks, no preamble, no signature.`;
+    const result = await model.generateContent(prompt);
+    return (result.response.text() || '').trim();
   }
   document.getElementById('l-spark-btn').addEventListener('click', async () => {
     const btn = document.getElementById('l-spark-btn');
@@ -924,7 +957,8 @@
       title: document.getElementById('l-title').value.trim(),
       body: document.getElementById('l-body').value.trim(),
       createdDate: editingLetterId ? (toArray(data.letters).find(x=>x.id===editingLetterId)||{}).createdDate || todayStr() : todayStr(),
-      unlockDate: document.getElementById('l-unlock').value || ''
+      unlockDate: document.getElementById('l-unlock').value || '',
+      createdBy: preserveCreatedBy(editingLetterId, 'letters')
     };
     const id = editingLetterId || uid();
     try{
@@ -983,7 +1017,8 @@
     const payload = {
       date: document.getElementById('j-date').value || todayStr(),
       mood: document.getElementById('j-mood').value,
-      text: document.getElementById('j-text').value.trim()
+      text: document.getElementById('j-text').value.trim(),
+      createdBy: preserveCreatedBy(editingJournalId, 'journal')
     };
     const id = editingJournalId || uid();
     try{
@@ -1067,6 +1102,66 @@
     data = JSON.parse(JSON.stringify(DEFAULTS));
   }
 
+  /* ---------- push notifications ---------- */
+  const NOTIFICATIONS_CONFIGURED = !!VAPID_KEY;
+
+  function updateNotifyButton(){
+    const btn = document.getElementById('notify-btn');
+    if(!NOTIFICATIONS_CONFIGURED){ btn.hidden = true; return; }
+    const on = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+    btn.classList.toggle('on', on);
+    btn.title = on ? 'Notifications are on' : 'Enable notifications';
+  }
+
+  async function saveFcmToken(token){
+    if(!dbRef || !authUser || !token) return;
+    const tokensRef = dbRef.child('fcmTokens').child(authUser.uid);
+    const snap = await tokensRef.once('value');
+    const existing = snap.val() || {};
+    const alreadySaved = Object.values(existing).includes(token);
+    if(!alreadySaved){
+      await tokensRef.push(token);
+    }
+  }
+
+  async function enableNotifications(silent){
+    if(!NOTIFICATIONS_CONFIGURED){
+      if(!silent) showToast('Notifications aren\u2019t set up yet \u2014 see SETUP.md.');
+      return;
+    }
+    if(typeof Notification === 'undefined'){
+      if(!silent) showToast('This browser doesn\u2019t support notifications.');
+      return;
+    }
+    if(Notification.permission === 'denied'){
+      if(!silent) showToast('Notifications are blocked \u2014 enable them for this site in your browser settings.');
+      return;
+    }
+    try{
+      const permission = await Notification.requestPermission();
+      updateNotifyButton();
+      if(permission !== 'granted') return;
+      const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+      await saveFcmToken(token);
+      if(!silent) showToast('Notifications are on \u2713');
+    }catch(err){
+      if(!silent) showToast("Couldn't turn on notifications \u2014 try again in a moment.");
+    }
+  }
+  document.getElementById('notify-btn').addEventListener('click', () => enableNotifications(false));
+
+  function setupForegroundMessages(){
+    if(!NOTIFICATIONS_CONFIGURED || typeof Notification === 'undefined') return;
+    try{
+      firebase.messaging().onMessage(payload => {
+        const title = (payload.notification && payload.notification.title) || 'Forever Us';
+        showToast('\u{1F48C} ' + title);
+      });
+    }catch(err){ /* messaging unsupported in this browser - ignore */ }
+  }
+
   document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
     const errorEl = document.getElementById('login-error');
@@ -1121,6 +1216,11 @@
         document.getElementById('login-error').textContent = '';
         document.getElementById('envelope-screen').hidden = false;
         connectDatabase();
+        updateNotifyButton();
+        setupForegroundMessages();
+        if(NOTIFICATIONS_CONFIGURED && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+          enableNotifications(true); // silently refresh/save the token for this device
+        }
       } else {
         disconnectDatabase();
         document.getElementById('app').classList.remove('visible');
@@ -1133,6 +1233,52 @@
     });
   }
   init();
+
+  // Bridge so the module script below (which needs ES module imports for
+  // App Check and AI Logic) can see the config values from this script.
+  window.__FOREVER_US__ = {
+    firebaseConfigured: FIREBASE_CONFIGURED,
+    recaptchaSiteKey: RECAPTCHA_SITE_KEY,
+    aiLogicEnabled: AI_LOGIC_ENABLED
+  };
+</script>
+
+<script type="module">
+  // App Check and Firebase AI Logic only ship a modular (ES module) SDK,
+  // while the rest of this app uses the simpler "compat" SDK via classic
+  // <script> tags above. This block bridges the two: it reuses the same
+  // Firebase app that the classic script already initialized.
+  const CFG = window.__FOREVER_US__ || {};
+  const FB_VERSION = '12.17.1';
+
+  async function setupSecurityAndAI(){
+    if(!CFG.firebaseConfigured) return;
+    try{
+      const { getApp } = await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-app.js`);
+      const app = getApp();
+
+      if(CFG.recaptchaSiteKey){
+        const { initializeAppCheck, ReCaptchaV3Provider } =
+          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-app-check.js`);
+        initializeAppCheck(app, {
+          provider: new ReCaptchaV3Provider(CFG.recaptchaSiteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      }
+
+      if(CFG.aiLogicEnabled){
+        const { getAI, getGenerativeModel, GoogleAIBackend } =
+          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-ai.js`);
+        const ai = getAI(app, { backend: new GoogleAIBackend() });
+        // Verify this model name is still current at
+        // https://firebase.google.com/docs/ai-logic/models before relying on it long-term.
+        window.__foreverUsAiModel = getGenerativeModel(ai, { model: 'gemini-3.6-flash' });
+      }
+    }catch(err){
+      console.error('App Check / AI Logic setup failed:', err);
+    }
+  }
+  setupSecurityAndAI();
 </script>
 </body>
 </html>
