@@ -1,87 +1,103 @@
 /**
- * Optional Cloud Function powering the "Spark" button in Forever Us.
+ * Cloud Functions for Forever Us: push notifications only.
  *
- * Why this exists: a public GitHub/Firebase-hosted page can't safely hold a
- * real API key in its own code (anyone can view page source and steal it).
- * This function keeps your Anthropic API key on the server side instead -
- * the webpage calls this function, and this function calls Anthropic.
+ * The "Spark" AI feature used to live here as a Cloud Function calling
+ * Anthropic's API. It's since moved to run directly in the browser via
+ * Firebase AI Logic (Gemini's free tier) - see AI_LOGIC_ENABLED near the
+ * top of index.html's <script>. That means no function, no API key, and
+ * no billing plan is needed just for Spark anymore.
  *
- * SETUP (see SETUP.md for the full walkthrough):
- *   1. Get an API key from https://console.anthropic.com (separate account
- *      from claude.ai, and separately billed).
- *   2. From your project folder:  firebase init functions
- *      (choose JavaScript, and when it creates functions/index.js, replace
- *      it with this file. Keep the generated package.json, or use the one
- *      provided alongside this file.)
- *   3. Store your key as a secret (never paste it directly into code):
- *        firebase functions:secrets:set ANTHROPIC_API_KEY
- *   4. Deploy:
- *        firebase deploy --only functions
- *   5. Copy the deployed function's URL from the deploy output and paste it
- *      into SPARK_FUNCTION_URL near the top of index.html's <script>.
+ * This file now only handles notifications: when a new memory, letter, or
+ * journal entry is created, look up who created it (stored as "createdBy"
+ * on the item itself), then push a notification to every *other*
+ * signed-in user's saved device token(s). The person who added the thing
+ * never gets pinged for their own addition.
  *
- * Model name: verify the current model identifier at
- * https://docs.anthropic.com/en/docs/about-claude/models before deploying -
- * model names change over time and this file may be out of date by the time
- * you read it.
+ * SETUP (see SETUP.md "Notifications" section for the full walkthrough):
+ *   1. In the Firebase console: Project settings > Cloud Messaging > Web
+ *      configuration > Generate key pair. That's your VAPID key.
+ *   2. Paste the VAPID key into VAPID_KEY near the top of index.html.
+ *   3. From your project folder: firebase init functions (choose your
+ *      existing project, choose JavaScript), then replace the generated
+ *      index.js and package.json with the ones provided here.
+ *   4. Deploy: firebase deploy --only functions
+ *      (Cloud Functions require Firebase's Blaze pay-as-you-go plan - it
+ *      has a generous free tier, but a payment method is required to
+ *      enable it. This requirement is specific to Cloud Functions, not
+ *      to Spark anymore.)
  */
 
-const { onRequest } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
+const { onValueCreated } = require('firebase-functions/v2/database');
+const admin = require('firebase-admin');
 
-const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+admin.initializeApp();
 
-exports.spark = onRequest(
-  { secrets: [ANTHROPIC_API_KEY], cors: true },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'method-not-allowed' });
-      return;
-    }
+async function notifyOtherPartner(creatorUid, title, body) {
+  if (!creatorUid) return; // no author recorded (e.g. item predates this feature) - skip
+  const db = admin.database();
+  const tokensSnap = await db.ref('forever-us-data/fcmTokens').once('value');
+  const allTokens = tokensSnap.val() || {};
 
-    const context =
-      (req.body && typeof req.body.context === 'string' && req.body.context.slice(0, 200)) ||
-      'just because, no particular occasion';
-
-    const prompt =
-      'Write one short, warm sentence (max 25 words) that could open a love ' +
-      'letter to a partner. Occasion or feeling to reflect, if any: "' +
-      context +
-      '". Return only the sentence - no quotation marks, no preamble, no signature.';
-
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY.value(),
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          // Double-check this against https://docs.anthropic.com/en/docs/about-claude/models
-          model: 'claude-3-5-haiku-20241022',
-          max_tokens: 200,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('Anthropic API error:', response.status, errText);
-        res.status(502).json({ error: 'upstream-error' });
-        return;
-      }
-
-      const result = await response.json();
-      const line = (result.content || [])
-        .map((block) => block.text || '')
-        .join('')
-        .trim();
-
-      res.json({ line });
-    } catch (err) {
-      console.error('Spark function error:', err);
-      res.status(500).json({ error: 'spark-failed' });
+  const sends = [];
+  for (const uid of Object.keys(allTokens)) {
+    if (uid === creatorUid) continue; // don't notify whoever just added it
+    const tokensForUser = allTokens[uid] || {};
+    for (const key of Object.keys(tokensForUser)) {
+      const token = tokensForUser[key];
+      sends.push({ uid, key, token });
     }
   }
-);
+
+  await Promise.all(
+    sends.map(async ({ uid, key, token }) => {
+      try {
+        await admin.messaging().send({
+          token,
+          notification: { title, body },
+          webpush: {
+            fcmOptions: { link: '/' },
+            notification: { icon: '/icon-192.png' }
+          }
+        });
+      } catch (err) {
+        // Token is stale (browser data cleared, notifications revoked, etc.) - clean it up.
+        if (
+          err.code === 'messaging/registration-token-not-registered' ||
+          err.code === 'messaging/invalid-registration-token'
+        ) {
+          await db.ref(`forever-us-data/fcmTokens/${uid}/${key}`).remove();
+        } else {
+          console.error('Notification send failed:', err);
+        }
+      }
+    })
+  );
+}
+
+exports.notifyOnMemory = onValueCreated('/forever-us-data/memories/{id}', async (event) => {
+  const memory = event.data.val() || {};
+  await notifyOtherPartner(
+    memory.createdBy,
+    `New memory: ${memory.title || 'Untitled'}`,
+    (memory.story || '').slice(0, 100)
+  );
+});
+
+exports.notifyOnLetter = onValueCreated('/forever-us-data/letters/{id}', async (event) => {
+  const letter = event.data.val() || {};
+  const isLocked = letter.unlockDate && new Date(letter.unlockDate).getTime() > Date.now();
+  await notifyOtherPartner(
+    letter.createdBy,
+    isLocked ? 'A new letter is waiting' : `New letter: ${letter.title || 'Untitled'}`,
+    isLocked ? "It's locked until the right day - tap to see when." : 'Tap to read it.'
+  );
+});
+
+exports.notifyOnJournal = onValueCreated('/forever-us-data/journal/{id}', async (event) => {
+  const entry = event.data.val() || {};
+  await notifyOtherPartner(
+    entry.createdBy,
+    'New journal entry',
+    (entry.text || '').slice(0, 100)
+  );
+});
