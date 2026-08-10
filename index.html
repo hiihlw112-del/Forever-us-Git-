@@ -511,6 +511,7 @@
 
   <!-- Firebase (compat build - no bundler needed) -->
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js"></script>
@@ -1208,6 +1209,19 @@
       return;
     }
     firebase.initializeApp(firebaseConfig);
+
+    if (RECAPTCHA_SITE_KEY) {
+      try {
+        const appCheck = firebase.appCheck();
+
+        appCheck.activate(RECAPTCHA_SITE_KEY, true);
+
+        console.log('Firebase App Check initialized before Auth/Database.');
+      } catch (err) {
+        console.error('Firebase App Check initialization failed:', err);
+      }
+    }
+
     firebase.auth().onAuthStateChanged(user => {
       authUser = user;
       if(user){
