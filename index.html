@@ -505,6 +505,7 @@
 
   <!-- Firebase (compat build - no bundler needed) -->
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js"></script>
@@ -1196,41 +1197,28 @@
   });
 
   /* ---------- security + boot ---------- */
-  const FB_VERSION = '12.17.1';
 
-  // IMPORTANT: Firebase App Check must be initialized before Auth/Database
-  // starts making requests when App Check enforcement is enabled. The old
-  // version initialized App Check in a separate module after init() had
-  // already attached Auth and could connect the database.
+  // App Check uses the Firebase compat SDK here so it shares the exact same
+  // Firebase app instance as Auth and Realtime Database. This avoids mixing
+  // modular and compat app registries during startup.
   async function setupSecurityAndAI(){
     if(!FIREBASE_CONFIGURED) return;
 
-    const app = firebase.app();
-
     if(RECAPTCHA_SITE_KEY){
-      try{
-        const { initializeAppCheck, ReCaptchaV3Provider } =
-          await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-app-check.js`);
-
-        initializeAppCheck(app, {
-          provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-          isTokenAutoRefreshEnabled: true
-        });
-
-        console.log('Firebase App Check initialized before Auth/Database.');
-      }catch(err){
-        console.error('Firebase App Check initialization failed:', err);
-        throw err;
-      }
+      // Firebase's compat App Check API. Must run after initializeApp() and
+      // before Auth/Realtime Database begin making requests.
+      const appCheck = firebase.appCheck();
+      appCheck.activate(RECAPTCHA_SITE_KEY, true);
+      console.log('Firebase App Check initialized before Auth/Database.');
     }
 
     if(AI_LOGIC_ENABLED){
       try{
+        const FB_VERSION = '12.17.1';
         const { getAI, getGenerativeModel, GoogleAIBackend } =
           await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-ai.js`);
+        const app = firebase.app();
         const ai = getAI(app, { backend: new GoogleAIBackend() });
-        // Verify this model name is still current at
-        // https://firebase.google.com/docs/ai-logic/models before relying on it long-term.
         window.__foreverUsAiModel = getGenerativeModel(ai, { model: 'gemini-3.6-flash' });
       }catch(err){
         console.error('Firebase AI Logic setup failed:', err);
